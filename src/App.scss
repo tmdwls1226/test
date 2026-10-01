@@ -3,10 +3,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 2rem;
-  padding: 0 1.5rem;
+  padding: 3rem 1.5rem;
   box-sizing: border-box;
+
+  // 검색 전에는 화면 중앙에 배치
+  &.is-idle {
+    justify-content: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 
   .App-title {
     margin: 0;
@@ -16,7 +22,7 @@
     color: #cc6699;
   }
 
-  .App-query {
+  .App-message {
     margin: 0;
     color: #868e96;
   }
