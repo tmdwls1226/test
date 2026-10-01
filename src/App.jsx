@@ -2,12 +2,14 @@ import { useRef, useState } from "react";
 import SearchBar from "./components/SearchBar";
 import WebtoonList from "./components/WebtoonList";
 import { searchWebtoons } from "./api/webtoon";
+import { searchSemantic } from "./api/semantic";
 import "./App.scss";
 
 function App() {
   const [query, setQuery] = useState("");
   const [webtoons, setWebtoons] = useState([]);
   const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const [mode, setMode] = useState("title"); // title | semantic
   const controllerRef = useRef(null);
 
   const onSearch = async (text) => {
@@ -18,7 +20,8 @@ function App() {
     setQuery(text);
     setStatus("loading");
     try {
-      const list = await searchWebtoons(text, controller.signal);
+      const search = mode === "semantic" ? searchSemantic : searchWebtoons;
+      const list = await search(text, controller.signal);
       setWebtoons(list);
       setStatus("done");
     } catch (err) {
@@ -29,7 +32,7 @@ function App() {
   return (
     <main className={`App${status === "idle" ? " is-idle" : ""}`}>
       <h1 className="App-title">SEARCHTOON</h1>
-      <SearchBar onSearch={onSearch} />
+      <SearchBar onSearch={onSearch} mode={mode} onModeChange={setMode} />
       {status === "loading" && <p className="App-message">검색 중...</p>}
       {status === "error" && (
         <p className="App-message">검색에 실패했어요. 잠시 후 다시 시도해 주세요.</p>
