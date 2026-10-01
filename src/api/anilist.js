@@ -15,31 +15,31 @@ const QUERY = `
   }
 `;
 
-// 웹툰을 볼 수 있는 플랫폼 (AniList externalLinks의 site 이름 기준)
+// 표시할 플랫폼: AniList externalLinks의 site 이름 또는 URL 도메인으로 판별
 const PLATFORMS = [
-  "Webtoon",
-  "Naver",
-  "Kakao",
-  "Tapas",
-  "Lezhin",
-  "Tappytoon",
-  "Manta",
-  "Toomics",
-  "Toptoon",
-  "Bomtoon",
-  "Ridi",
-  "Munpia",
-  "Mr. Blue",
+  { label: "네이버웹툰", site: /naver/i, host: /(^|\.)naver\.com$/ },
+  { label: "카카오웹툰", site: /kakao/i, host: /(^|\.)kakao\.com$/ },
 ];
 
+function hostOf(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "";
+  }
+}
+
 function pickPlatforms(links = []) {
-  return links
-    .filter(
-      (link) =>
-        link.type === "STREAMING" ||
-        PLATFORMS.some((p) => link.site.toLowerCase().includes(p.toLowerCase())),
-    )
-    .map(({ site, url }) => ({ name: site, url }));
+  const found = new Map();
+  for (const { site, url } of links) {
+    const platform = PLATFORMS.find(
+      (p) => p.site.test(site) || p.host.test(hostOf(url)),
+    );
+    if (platform && !found.has(platform.label)) {
+      found.set(platform.label, { name: platform.label, url });
+    }
+  }
+  return [...found.values()];
 }
 
 function toWebtoon(media) {
