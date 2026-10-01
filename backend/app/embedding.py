@@ -10,8 +10,9 @@ from . import config
 class HashEmbedder:
     """글자 2·3-gram을 해싱한 벡터. 한국어도 동작하지만 단어가 겹쳐야만 유사도가 높다."""
 
-    name = "hash-512"
-    dim = 512
+    name = "hash-2048"
+    dim = 2048
+    min_score = 0.1  # 이보다 낮은 유사도는 무관한 결과로 본다
 
     def _encode(self, text: str) -> np.ndarray:
         text = re.sub(r"\s+", " ", text.lower()).strip()
@@ -36,6 +37,7 @@ class SentenceTransformerEmbedder:
         from sentence_transformers import SentenceTransformer
 
         self.name = model_name
+        self.min_score = 0.0  # E5는 점수가 높은 구간에 몰려 있어 순위만 사용
         self.model = SentenceTransformer(model_name)
 
     def embed_passages(self, texts: list[str]) -> np.ndarray:

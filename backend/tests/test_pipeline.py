@@ -45,3 +45,41 @@ def test_semantic_search_ranks_by_description(client):
 def test_reingest_is_idempotent(client):
     assert ingest.ingest(to_webtoon(m) for m in MEDIA) == 2
     assert len(client.get("/api/search/title", params={"q": "로맨스"}).json()) == 1
+
+
+def test_title_search_ignores_spaces_and_case(client):
+    assert [x["title"] for x in client.get("/api/search/title", params={"q": "나혼자만"}).json()] == ["나 혼자만 레벨업"]
+    assert len(client.get("/api/search/title", params={"q": "solo LEVELING"}).json()) == 1
+
+
+def test_title_search_treats_wildcards_literally(client):
+    assert client.get("/api/search/title", params={"q": "%"}).json() == []
+    assert client.get("/api/search/title", params={"q": "_"}).json() == []
+
+
+def test_semantic_drops_unrelated(client):
+    assert client.get("/api/search/semantic", params={"q": "zzzqqq"}).json() == []
+
+
+def test_urls_are_sanitized():
+    media = {**MEDIA[0], "siteUrl": "javascript:alert(1)", "coverImage": {"large": "data:text/html,x"}}
+    w = to_webtoon(media)
+    assert w["info_url"] is None and w["thumbnail"] is None
+
+
+def test_sample_data_loads_and_searches(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "s.db")
+    assert ingest.ingest(ingest.load_sample()) >= 10
+    from app.main import app
+    c = TestClient(app)
+    top = c.get("/api/search/semantic", params={"q": "좀비 학교 생존"}).json()
+    assert top[0]["title"] == "지금 우리 학교는"
+    assert c.get("/api/health").json()["count"] >= 10
+
+
+def test_empty_db_returns_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "empty.db")
+    from app.main import app
+    c = TestClient(app)
+    assert c.get("/api/search/semantic", params={"q": "로맨스"}).json() == []
+    assert c.get("/api/search/title", params={"q": "로맨스"}).json() == []

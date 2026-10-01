@@ -27,6 +27,21 @@
     outline: none;
     font-size: 1.1rem;
     background: transparent;
+
+    &::-webkit-search-cancel-button {
+      appearance: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    select {
+      padding-left: 0.8rem;
+    }
+
+    input {
+      padding: 0.8rem 0.8rem;
+      font-size: 1rem;
+    }
   }
 
   button {

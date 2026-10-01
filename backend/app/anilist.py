@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .textutil import safe_url
+
 ENDPOINT = "https://graphql.anilist.co"
 
 QUERY = """
@@ -34,8 +36,9 @@ def pick_platforms(links: list[dict]) -> list[dict]:
     for link in links or []:
         host = urlparse(link["url"]).hostname or ""
         for label, site_re, host_re in PLATFORMS:
-            if label not in found and (site_re.search(link["site"]) or host_re.search(host)):
-                found[label] = {"name": label, "url": link["url"]}
+            url = safe_url(link["url"])
+            if url and label not in found and (site_re.search(link["site"]) or host_re.search(host)):
+                found[label] = {"name": label, "url": url}
     return list(found.values())
 
 
@@ -54,10 +57,22 @@ def to_webtoon(media: dict) -> dict:
         "description": clean_description(media.get("description")),
         "genres": media.get("genres") or [],
         "tags": [x["name"] for x in sorted(media.get("tags") or [], key=lambda x: -x["rank"])[:10]],
-        "thumbnail": (media.get("coverImage") or {}).get("large"),
-        "info_url": media.get("siteUrl"),
+        "thumbnail": safe_url((media.get("coverImage") or {}).get("large")),
+        "info_url": safe_url(media.get("siteUrl")),
         "platforms": pick_platforms(media.get("externalLinks")),
     }
+
+
+def _post(client: httpx.Client, page: int, retries: int = 4) -> dict:
+    """AniList 호출. 429(속도 제한)면 Retry-After만큼 쉬고 재시도한다."""
+    for attempt in range(retries):
+        res = client.post(ENDPOINT, json={"query": QUERY, "variables": {"page": page}})
+        if res.status_code == 429 and attempt < retries - 1:
+            time.sleep(int(res.headers.get("Retry-After", 5)))
+            continue
+        res.raise_for_status()
+        return res.json()["data"]["Page"]
+    raise RuntimeError("unreachable")
 
 
 def fetch_webtoons(max_pages: int = 10, client: httpx.Client | None = None):
@@ -66,9 +81,7 @@ def fetch_webtoons(max_pages: int = 10, client: httpx.Client | None = None):
     client = client or httpx.Client(timeout=30)
     try:
         for page in range(1, max_pages + 1):
-            res = client.post(ENDPOINT, json={"query": QUERY, "variables": {"page": page}})
-            res.raise_for_status()
-            data = res.json()["data"]["Page"]
+            data = _post(client, page)
             yield from (to_webtoon(m) for m in data["media"])
             if not data["pageInfo"]["hasNextPage"]:
                 break

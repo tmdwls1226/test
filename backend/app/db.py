@@ -1,10 +1,9 @@
 import json
 import sqlite3
-from contextlib import closing
-
 import numpy as np
 
 from . import config
+from .textutil import escape_like, normalize
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS webtoons (
@@ -84,5 +83,48 @@ def all_embeddings(conn: sqlite3.Connection, model: str):
     return rows, matrix
 
 
-def close(conn):
-    return closing(conn)
+def count() -> int:
+    conn = connect()
+    try:
+        return conn.execute("SELECT COUNT(*) FROM webtoons").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def search_title(conn: sqlite3.Connection, query: str, limit: int) -> list[sqlite3.Row]:
+    """공백·대소문자 무시 부분 일치. 정확히 일치 > 앞부분 일치 > 포함 순으로 정렬."""
+    q = escape_like(normalize(query))
+    cols = "REPLACE(title, ' ', '')"
+    sub = "REPLACE(COALESCE(subtitle, ''), ' ', '')"
+    return conn.execute(
+        f"""
+        SELECT * FROM webtoons
+        WHERE {cols} LIKE :any ESCAPE '\\' OR {sub} LIKE :any ESCAPE '\\'
+        ORDER BY CASE
+                   WHEN LOWER({cols}) = :exact OR LOWER({sub}) = :exact THEN 0
+                   WHEN {cols} LIKE :prefix ESCAPE '\\' OR {sub} LIKE :prefix ESCAPE '\\' THEN 1
+                   ELSE 2 END,
+                 title
+        LIMIT :limit
+        """,
+        {"any": f"%{q}%", "prefix": f"{q}%", "exact": normalize(query), "limit": limit},
+    ).fetchall()
+
+
+_cache: dict = {}
+
+
+def cached_embeddings(model: str):
+    """(rows, matrix). DB 파일이 바뀌면(mtime) 다시 읽고, 아니면 메모리 캐시를 쓴다."""
+    stamp = config.DB_PATH.stat().st_mtime_ns if config.DB_PATH.exists() else 0
+    key = (str(config.DB_PATH), model)
+    hit = _cache.get(key)
+    if hit and hit[0] == stamp:
+        return hit[1], hit[2]
+    conn = connect()
+    try:
+        rows, matrix = all_embeddings(conn, model)
+    finally:
+        conn.close()
+    _cache[key] = (stamp, rows, matrix)
+    return rows, matrix
