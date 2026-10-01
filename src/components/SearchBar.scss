@@ -1,0 +1,62 @@
+.SearchBar {
+  display: flex;
+  width: 100%;
+  max-width: 600px;
+  background: white;
+  border: 2px solid #cc6699;
+  border-radius: 999px;
+  overflow: hidden;
+
+  select {
+    padding: 0 0.6rem 0 1.2rem;
+    border: none;
+    border-right: 1px solid #f0d4e2;
+    background: transparent;
+    color: #cc6699;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.9rem 1.5rem;
+    border: none;
+    outline: none;
+    font-size: 1.1rem;
+    background: transparent;
+
+    &::-webkit-search-cancel-button {
+      appearance: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    select {
+      padding-left: 0.8rem;
+    }
+
+    input {
+      padding: 0.8rem 0.8rem;
+      font-size: 1rem;
+    }
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    padding: 0 1.2rem;
+    border: none;
+    background: #cc6699;
+    color: white;
+    font-size: 1.6rem;
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &:hover {
+      background: #b85588;
+    }
+  }
+}

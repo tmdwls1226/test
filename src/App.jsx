@@ -1,76 +1,67 @@
-import React, { useCallback, useReducer, useRef, useState } from "react";
-import TodoTemplate from "./components/TodoTemplate";
-import TodoInsert from "./components/TodoInsert";
-import TodoList from "./components/TodoList";
-
-function createBulkTodos() {
-  const array = [];
-  for (let i = 1; i <= 3000; i++) {
-    array.push({
-      id: i,
-      text: `할 일 ${i}`,
-      checked: false,
-    });
-  }
-  return array;
-}
-
-function todoReducer(todos, action) {
-  switch (action.type) {
-    case "INSERT": //새로추가
-      //{type : 'INSERT', todo:{id:1, text:'todo', checked:false}}
-      return todos.concat(action.todo);
-    case "Remove": //제거
-      //{type: 'Remove',id:1'}
-      return todos.filter((todo) => todo.id !== action.id);
-    case "TOGGLE": //토글
-      //{type: 'REMOVE, id:1'}
-      return todos.map((todo) =>
-        todo.id === action.id ? { ...todo, checked: !todo.checked } : todo,
-      );
-    default:
-      return todos;
-  }
-}
+import { useRef, useState } from "react";
+import SearchBar from "./components/SearchBar";
+import WebtoonList from "./components/WebtoonList";
+import { searchWebtoons } from "./api/search";
+import "./App.scss";
 
 function App() {
-  //두번째에 undefined을 넣고, 세번째 파라미터에 초기 상태를 만드는 함수 createBulkTodos을 넣으면
-  // 컴포넌트가 처음렌더링 될때만 createBulkTodos함수를 호출된다
-  const [todos, dispatch] = useReducer(todoReducer, undefined, createBulkTodos);
+  const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("title"); // title | semantic
+  const [webtoons, setWebtoons] = useState([]);
+  const [status, setStatus] = useState("idle"); // idle | loading | done | error
+  const controllerRef = useRef(null);
 
-  // 고유값으로 사용될 id
-  // ref를 사용하여 변수 담기
-  // 변경이 잦은 변수를 담는공간
-  const nextId = useRef(3001);
+  const runSearch = async (text, searchMode) => {
+    controllerRef.current?.abort(); // 이전 검색 취소
+    const controller = new AbortController();
+    controllerRef.current = controller;
 
-  const onInsert = useCallback(
-    // onInsert = 데이터삽입
-    (text) => {
-      const todo = {
-        id: nextId.current,
-        text,
-        checked: false,
-      };
-      dispatch({ type: "INSERT", todo });
-      //nextId.current=nextId.current+1
-      nextId.current += 1; //nextId 1씩 더하기
-    },
-    [],
-  );
+    setQuery(text);
+    setStatus("loading");
+    try {
+      const list = await searchWebtoons(text, searchMode, controller.signal);
+      setWebtoons(list);
+      setStatus("done");
+    } catch (err) {
+      if (err.name !== "AbortError") setStatus("error");
+    }
+  };
 
-  const onRemove = useCallback((id) => {
-    dispatch({ type: "REMOVE", id }); //id값을 받아 지운 id랑 다르면 남겨라
-  }, []);
-
-  const onToggle = useCallback((id) => {
-    dispatch({ type: "TOGGLE", id });
-  }, []);
+  // 검색 방식을 바꾸면 같은 검색어로 바로 다시 검색
+  const onModeChange = (next) => {
+    setMode(next);
+    if (query) runSearch(query, next);
+  };
 
   return (
-    <TodoTemplate>
-      <TodoInsert onInsert={onInsert} />
-      <TodoList todos={todos} onRemove={onRemove} onToggle={onToggle} />
-    </TodoTemplate>
+    <main className={`App${status === "idle" ? " is-idle" : ""}`}>
+      <h1 className="App-title">SEARCHTOON</h1>
+      <SearchBar
+        onSearch={(text) => runSearch(text, mode)}
+        mode={mode}
+        onModeChange={onModeChange}
+      />
+      <div className="App-result" aria-live="polite">
+        {status === "loading" && <p className="App-message">검색 중...</p>}
+        {status === "error" && (
+          <p className="App-message">
+            검색 서버에 연결하지 못했어요. 백엔드가 실행 중인지 확인해 주세요.
+          </p>
+        )}
+        {status === "done" && webtoons.length === 0 && (
+          <p className="App-message">
+            "{query}"에 대한 결과가 없어요.
+            {mode === "title" && " '설명' 검색으로 내용을 찾아보세요."}
+          </p>
+        )}
+        {status === "done" && webtoons.length > 0 && (
+          <>
+            <p className="App-count">검색 결과 {webtoons.length}개</p>
+            <WebtoonList webtoons={webtoons} />
+          </>
+        )}
+      </div>
+    </main>
   );
 }
 

@@ -1,0 +1,45 @@
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 3rem 1.5rem;
+  box-sizing: border-box;
+
+  // 검색 전에는 화면 중앙에 배치
+  &.is-idle {
+    justify-content: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .App-title {
+    margin: 0;
+    font-size: clamp(2.5rem, 10vw, 6rem);
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: #cc6699;
+  }
+
+  .App-result {
+    width: 100%;
+    max-width: 1000px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .App-count {
+    margin: 0;
+    align-self: flex-start;
+    color: #495057;
+    font-weight: 700;
+  }
+
+  .App-message {
+    margin: 0;
+    color: #868e96;
+  }
+}
